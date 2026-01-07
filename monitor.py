@@ -33,8 +33,12 @@ SERVICE_ACCOUNT_INFO = None
 
 # 1. Try to load from Streamlit Secrets (for Cloud Deployment)
 if st is not None and hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
-    SERVICE_ACCOUNT_INFO = st.secrets["gcp_service_account"]
-    # print("정보: Streamlit Secrets에서 인증 정보를 로드했습니다.") 
+    # to_dict() is needed because st.secrets objects might be immutable or special types
+    SERVICE_ACCOUNT_INFO = dict(st.secrets["gcp_service_account"])
+    
+    # [CRITICAL FIX] Handle private_key newline escaping issues
+    if "private_key" in SERVICE_ACCOUNT_INFO:
+        SERVICE_ACCOUNT_INFO["private_key"] = SERVICE_ACCOUNT_INFO["private_key"].replace("\\n", "\n") 
 
 # 2. If not in secrets, try local file
 if not SERVICE_ACCOUNT_INFO:
