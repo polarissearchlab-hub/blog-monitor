@@ -69,7 +69,7 @@ HEADERS = {
 # 핵심 로직 (LOGIC)
 # =====================================================================================
 
-def get_sheet_service():
+def get_sheet_service(log_func=print):
     scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     try:
         if SERVICE_ACCOUNT_INFO:
