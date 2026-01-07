@@ -80,8 +80,15 @@ def normalize_private_key(key):
     """
     if not key: return ""
     
-    # 1. 헤더/푸터 제거하고 순수 내용만 추출
-    content = key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
+    # 1. 정규식으로 헤더/푸터 사이의 내용만 쏙 빼냄 (주변 쓰레기 값 제거)
+    pattern = r"-----BEGIN PRIVATE KEY-----(.*?)-----END PRIVATE KEY-----"
+    match = re.search(pattern, key, re.DOTALL)
+    
+    if match:
+        content = match.group(1)
+    else:
+        # 헤더/푸터가 없으면 전체를 내용으로 간주 (사용자가 내용만 복사했을 경우)
+        content = key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
     
     # 2. 모든 공백(스페이스, 탭, 줄바꿈) 제거 -> 한 줄짜리 Base64 문자열로 만듦
     content = re.sub(r'\s+', '', content)
