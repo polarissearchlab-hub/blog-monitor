@@ -69,6 +69,30 @@ HEADERS = {
     'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
 }
 
+def validate_service_account_info(info, log_func=print):
+    """
+    인증 정보가 올바른 형식인지 미리 검사합니다.
+    """
+    if not info or not isinstance(info, dict):
+        log_func("❌ 인증 정보가 딕셔너리 형태가 아닙니다.")
+        return False
+        
+    required_keys = ["project_id", "private_key", "client_email"]
+    missing = [k for k in required_keys if k not in info]
+    if missing:
+        log_func(f"❌ 인증 정보에 필수 항목이 빠져 있습니다: {missing}")
+        return False
+        
+    p_key = info.get("private_key", "")
+    if "-----BEGIN PRIVATE KEY-----" not in p_key:
+        log_func("❌ [중요] 'private_key' 형식이 잘못되었습니다.")
+        log_func("   이유: '-----BEGIN PRIVATE KEY-----' 로 시작하지 않습니다.")
+        log_func("   해결: credentials.json 안에 있는 private_key 전체를 정확히 복사했는지 확인해주세요.")
+        return False
+        
+    return True
+
+
 # =====================================================================================
 # 핵심 로직 (LOGIC)
 # =====================================================================================
@@ -78,6 +102,8 @@ def get_sheet_service(log_func=print):
     try:
         if SERVICE_ACCOUNT_INFO:
             # Load from dictionary (Secrets)
+            if not validate_service_account_info(SERVICE_ACCOUNT_INFO, log_func):
+                return None
             creds = Credentials.from_service_account_info(SERVICE_ACCOUNT_INFO, scopes=scopes)
         else:
             # Load from file (Local)
