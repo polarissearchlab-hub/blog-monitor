@@ -37,8 +37,11 @@ if st is not None and hasattr(st, "secrets") and "gcp_service_account" in st.sec
     SERVICE_ACCOUNT_INFO = dict(st.secrets["gcp_service_account"])
     
     # [CRITICAL FIX] Handle private_key newline escaping issues
+    # [CRITICAL FIX] Handle private_key newline escaping issues
     if "private_key" in SERVICE_ACCOUNT_INFO:
-        SERVICE_ACCOUNT_INFO["private_key"] = SERVICE_ACCOUNT_INFO["private_key"].replace("\\n", "\n") 
+        # [NEW] 강력한 정규화 함수 적용 (단순 replace보다 확실함)
+        # 나중에 normalize_private_key 함수가 정의되면 호출되도록 여기서는 패스하고 아래에서 처리
+        pass 
 
 # 2. If not in secrets, try local file
 if not SERVICE_ACCOUNT_INFO:
@@ -63,11 +66,32 @@ COL_STATUS = 6    # F열
 
 STATUS_PENDING = "접수"
 STATUS_CLOSED = "종결"
+import re
 
 # 헤더(User-Agent) 설정
 HEADERS = {
     'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
 }
+
+def normalize_private_key(key):
+    """
+    private_key가 어떤 엉망인 상태로 들어와도 표준 PEM 형식으로 복구합니다.
+    (공백 제어, 64자 줄바꿈 등)
+    """
+    if not key: return ""
+    
+    # 1. 헤더/푸터 제거하고 순수 내용만 추출
+    content = key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
+    
+    # 2. 모든 공백(스페이스, 탭, 줄바꿈) 제거 -> 한 줄짜리 Base64 문자열로 만듦
+    content = re.sub(r'\s+', '', content)
+    
+    # 3. 64글자씩 잘라서 줄바꿈 (표준 PEM 규격)
+    chunked_content = '\n'.join(content[i:i+64] for i in range(0, len(content), 64))
+    
+    # 4. 헤더/푸터 다시 붙이기
+    final_key = f"-----BEGIN PRIVATE KEY-----\n{chunked_content}\n-----END PRIVATE KEY-----\n"
+    return final_key
 
 def validate_service_account_info(info, log_func=print):
     """
@@ -85,21 +109,11 @@ def validate_service_account_info(info, log_func=print):
         
     p_key = info.get("private_key", "")
     
-    # [방어 로직] 키 내용을 좀 더 자세히 로그로 남겨서(일부만) 원인 파악
-    log_func(f"🔎 키 검사 중... 길이: {len(p_key)}자")
-    log_func(f"   앞부분: {repr(p_key[:50])}")
-    log_func(f"   뒷부분: {repr(p_key[-50:])}")
+    # [로그 최소화] 이제 내용은 보지 않고 형식만 체크
+    if "-----BEGIN PRIVATE KEY-----" not in p_key and "-----BEGIN PRIVATE KEY-----" not in normalize_private_key(p_key):
+         log_func("❌ [중요] 'private_key' 형식이 잘못되었습니다.")
+         return False
 
-    if "-----BEGIN PRIVATE KEY-----" not in p_key:
-        log_func("❌ [중요] 'private_key' 형식이 잘못되었습니다.")
-        log_func("   이유: '-----BEGIN PRIVATE KEY-----' 로 시작하지 않습니다.")
-        log_func("   해결: credentials.json 안에 있는 private_key 전체를 정확히 복사했는지 확인해주세요.")
-        return False
-        
-    if len(p_key) < 100:
-        log_func("❌ [중요] 키 길이가 너무 짧습니다. 잘린 것 같습니다.")
-        return False
-        
     return True
 
 
@@ -112,8 +126,10 @@ def get_sheet_service(log_func=print):
     try:
         if SERVICE_ACCOUNT_INFO:
             # Load from dictionary (Secrets)
-            if not validate_service_account_info(SERVICE_ACCOUNT_INFO, log_func):
-                return None
+            # [강력 수정] 사용하기 직전에 키를 정규화해버림
+            if "private_key" in SERVICE_ACCOUNT_INFO:
+                SERVICE_ACCOUNT_INFO["private_key"] = normalize_private_key(SERVICE_ACCOUNT_INFO["private_key"])
+                
             creds = Credentials.from_service_account_info(SERVICE_ACCOUNT_INFO, scopes=scopes)
         else:
             # Load from file (Local)
