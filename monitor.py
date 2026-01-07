@@ -44,8 +44,11 @@ if not SERVICE_ACCOUNT_INFO:
             break
 
 if not SERVICE_ACCOUNT_INFO and not SERVICE_ACCOUNT_FILE:
-    print("오류: credentials.json 파일을 찾을 수 없고, Streamlit Secrets도 없습니다.")
-    sys.exit(1)
+    # 즉시 종료하지 않고, 나중에 함수에서 체크하도록 함
+    pass  
+
+def check_credentials_available():
+    return (SERVICE_ACCOUNT_INFO is not None) or (SERVICE_ACCOUNT_FILE is not None)
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1DUEL5-7_MBaX95zBVhS4zmkcXqYG8UTV7BEN_g6UKdg/edit?usp=sharing"
 SHEET_NAME = "국민신문고 신고내역"
 
@@ -79,7 +82,7 @@ def get_sheet_service():
         client = gspread.authorize(creds)
         return client
     except Exception as e:
-        print(f"인증 오류: {e}")
+        log_func(f"인증 오류: {e}")
         return None
 
 
@@ -177,7 +180,7 @@ def task_check_status(sheet, log_func=print):
 
 def run_all_tasks(log_func=print):
     log_func(f"\n>>> 작업 실행: {datetime.now()}")
-    client = get_sheet_service()
+    client = get_sheet_service(log_func) # Pass logger to service getter
     if not client: return
     
     try:
