@@ -86,6 +86,11 @@ def normalize_private_key(key):
     # 2. 모든 공백(스페이스, 탭, 줄바꿈) 제거 -> 한 줄짜리 Base64 문자열로 만듦
     content = re.sub(r'\s+', '', content)
     
+    # [Padding Fix] Base64 길이는 4의 배수여야 함. 부족하면 '=' 채우기
+    missing_padding = len(content) % 4
+    if missing_padding:
+        content += '=' * (4 - missing_padding)
+    
     # 3. 64글자씩 잘라서 줄바꿈 (표준 PEM 규격)
     chunked_content = '\n'.join(content[i:i+64] for i in range(0, len(content), 64))
     
