@@ -84,10 +84,20 @@ def validate_service_account_info(info, log_func=print):
         return False
         
     p_key = info.get("private_key", "")
+    
+    # [방어 로직] 키 내용을 좀 더 자세히 로그로 남겨서(일부만) 원인 파악
+    log_func(f"🔎 키 검사 중... 길이: {len(p_key)}자")
+    log_func(f"   앞부분: {repr(p_key[:50])}")
+    log_func(f"   뒷부분: {repr(p_key[-50:])}")
+
     if "-----BEGIN PRIVATE KEY-----" not in p_key:
         log_func("❌ [중요] 'private_key' 형식이 잘못되었습니다.")
         log_func("   이유: '-----BEGIN PRIVATE KEY-----' 로 시작하지 않습니다.")
         log_func("   해결: credentials.json 안에 있는 private_key 전체를 정확히 복사했는지 확인해주세요.")
+        return False
+        
+    if len(p_key) < 100:
+        log_func("❌ [중요] 키 길이가 너무 짧습니다. 잘린 것 같습니다.")
         return False
         
     return True
